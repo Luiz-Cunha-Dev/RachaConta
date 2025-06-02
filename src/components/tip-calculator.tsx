@@ -231,7 +231,7 @@ export function TipCalculator() {
         variant: "destructive",
         duration: 7000,
         action: <Button onClick={() => {
-          setTempApiKey(userApiKey); // Preencher com a chave atual, se houver
+          setTempApiKey(userApiKey); 
           setShowApiKeyDialog(true);
         }}>Configurar Chave</Button>
       });
@@ -255,26 +255,48 @@ export function TipCalculator() {
       });
     } catch (error) {
       console.error("Erro na Sugestão de Gorjeta da IA:", error);
-      let errorMessage = error instanceof Error ? error.message : "Falha ao obter sugestão de gorjeta. Verifique a URL ou tente novamente.";
-      
-      // Tenta identificar erros específicos de API Key
-      const errorString = String(error).toLowerCase();
-      if (errorString.includes("api key") || errorString.includes("api_key_invalid") || errorString.includes("permission denied") || errorString.includes("authentication")) {
-          errorMessage = "Chave de API inválida, não configurada corretamente ou com permissões insuficientes. Verifique sua chave.";
+      let userMessage = "Ocorreu um erro inesperado ao buscar a sugestão. Tente novamente mais tarde.";
+      let toastTitle = "Erro Inesperado";
+
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        if (errorMessage === "AI_SUGGESTION_PROCESSING_FAILED") {
+          toastTitle = "Falha no Processamento";
+          userMessage = "A IA não conseguiu processar sua solicitação. Verifique a URL, sua chave de API ou tente mais tarde.";
+        } else if (errorMessage === "AI_NO_OUTPUT") {
+          toastTitle = "Sem Resposta da IA";
+          userMessage = "A IA não retornou uma resposta. Tente novamente.";
+        } else if (errorMessage === "AI_OUTPUT_PARSE_FAILED") {
+          toastTitle = "Erro de Formato da IA";
+          userMessage = "A resposta da IA não pôde ser entendida. Tente novamente.";
+        } else if (errorMessage.toLowerCase().includes("api key") || errorMessage.toLowerCase().includes("api_key_invalid") || errorMessage.toLowerCase().includes("permission denied") || errorMessage.toLowerCase().includes("authentication") || errorMessage.toLowerCase().includes("chave de api")) {
+          toastTitle = "Erro com a Chave de API";
+          userMessage = "Chave de API inválida, não configurada corretamente ou com permissões insuficientes. Verifique sua chave.";
           toast({
-            title: "Erro com a Chave de API",
-            description: errorMessage,
+            title: toastTitle,
+            description: userMessage,
             variant: "destructive",
             duration: 7000,
             action: <Button onClick={() => {
-                setTempApiKey(userApiKey); // Preencher com a chave atual
+                setTempApiKey(userApiKey);
                 setShowApiKeyDialog(true);
             }}>Verificar Chave</Button>
           });
-      } else {
-          toast({ title: "Falha na Sugestão", description: errorMessage, variant: "destructive", duration: 5000 });
+          setSuggestionError(userMessage);
+          setIsSuggesting(false);
+          return; 
+        } else if (errorMessage.startsWith("An error occurred in the Server Components render")) {
+            toastTitle = "Erro no Servidor";
+            userMessage = "Ocorreu um problema no servidor ao processar sua solicitação. Tente novamente mais tarde.";
+        } else {
+          // Se for um erro diferente, mas ainda uma instância de Error, usa a mensagem dele.
+          userMessage = errorMessage;
+          toastTitle = "Falha na Sugestão";
+        }
       }
-      setSuggestionError(errorMessage);
+      
+      toast({ title: toastTitle, description: userMessage, variant: "destructive", duration: 6000 });
+      setSuggestionError(userMessage);
     } finally {
       setIsSuggesting(false);
     }
@@ -328,7 +350,7 @@ export function TipCalculator() {
                 variant="outline"
                 size="icon"
                 onClick={() => {
-                    setTempApiKey(userApiKey); // Preencher com a chave atual ao abrir
+                    setTempApiKey(userApiKey); 
                     setShowApiKeyDialog(true);
                 }}
                 aria-label="Configurar Chave de API do Google AI"
@@ -509,7 +531,7 @@ export function TipCalculator() {
               </>
             )}
           </Button>
-          {suggestionError && !isSuggesting && ( // Mostrar erro apenas se não estiver carregando
+          {suggestionError && !isSuggesting && ( 
             <Alert variant="destructive" className="mt-2">
               <AlertTitle>Erro na Sugestão</AlertTitle>
               <AlertDescription>{suggestionError}</AlertDescription>

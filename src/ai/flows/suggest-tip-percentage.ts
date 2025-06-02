@@ -58,7 +58,8 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
     outputSchema: SuggestTipPercentageOutputSchema,
   },
   async (input) => {
-    const { restaurantUrl, apiKey } = input;
+    const { restaurantUrl } = input;
+    const apiKey = input.apiKey; // apiKey é string | undefined devido ao Zod schema
     const modelId = 'googleai/gemini-1.5-flash-latest';
 
     const generateOptionsBase: Omit<GenerateOptions, 'model'> = {
@@ -89,14 +90,13 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
       }
     } catch (flowError) {
       console.error("Erro no fluxo Genkit (suggestTipPercentageFlow):", flowError);
-      if (flowError instanceof Error) {
-        throw new Error(`Falha na sugestão da IA: ${flowError.message}`);
-      }
-      throw new Error("Falha na sugestão da IA devido a um erro desconhecido no fluxo.");
+      // Lançar erro com código simples
+      throw new Error("AI_SUGGESTION_PROCESSING_FAILED");
     }
 
     if (!resultOutput) {
-      throw new Error("A IA não retornou um resultado válido (nulo ou indefinido).");
+      // Lançar erro com código simples
+      throw new Error("AI_NO_OUTPUT");
     }
 
     try {
@@ -105,7 +105,8 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
       return parsedOutput;
     } catch (parseError) {
       console.error("Falha na validação do schema do output da IA:", parseError, "Output recebido:", resultOutput);
-      throw new Error("A IA retornou um resultado com formato inesperado.");
+      // Lançar erro com código simples
+      throw new Error("AI_OUTPUT_PARSE_FAILED");
     }
   }
 );
