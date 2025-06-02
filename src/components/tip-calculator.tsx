@@ -44,7 +44,7 @@ export function TipCalculator() {
 
   const handleSuggestTip = async () => {
     if (!restaurantUrl) {
-      toast({ title: "Hold Up!", description: "Please enter a restaurant URL to get a tip suggestion.", variant: "destructive", duration: 3000 });
+      toast({ title: "Atenção!", description: "Por favor, insira a URL de um restaurante para obter uma sugestão de gorjeta.", variant: "destructive", duration: 3000 });
       return;
     }
     setIsSuggesting(true);
@@ -58,15 +58,15 @@ export function TipCalculator() {
       setTipPercentage(result.suggestedTipPercentage); // Apply suggested tip
       setAiSuggestionReasoning(result.reasoning);
       toast({
-        title: "AI Tip Suggestion ✨",
-        description: `Suggested tip: ${result.suggestedTipPercentage}%. Reason: ${result.reasoning}`,
+        title: "Sugestão de Gorjeta da IA ✨",
+        description: `Gorjeta sugerida: ${result.suggestedTipPercentage}%. Motivo: ${result.reasoning}`,
         duration: 7000,
       });
     } catch (error) {
-      console.error("AI Tip Suggestion Error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to get tip suggestion. Please check the URL or try again.";
+      console.error("Erro na Sugestão de Gorjeta da IA:", error);
+      const errorMessage = error instanceof Error ? error.message : "Falha ao obter sugestão de gorjeta. Verifique a URL ou tente novamente.";
       setSuggestionError(errorMessage);
-      toast({ title: "Suggestion Failed", description: errorMessage, variant: "destructive", duration: 5000 });
+      toast({ title: "Falha na Sugestão", description: errorMessage, variant: "destructive", duration: 5000 });
     } finally {
       setIsSuggesting(false);
     }
@@ -93,22 +93,22 @@ export function TipCalculator() {
     <Card className="w-full shadow-xl bg-card/80 backdrop-blur-sm">
       <CardHeader>
         <CardTitle className="text-3xl font-headline text-center tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-          TipSplit 💸
+          RachaConta 💸
         </CardTitle>
         <CardDescription className="text-center font-body">
-          Calculate and split your bill with ease. Let AI help you with tip suggestions!
+          Calcule e divida sua conta com facilidade. Deixe a IA ajudar com sugestões de gorjeta!
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div>
             <Label htmlFor="billAmount" className="flex items-center text-sm font-medium mb-1">
-              <DollarSign className="w-4 h-4 mr-2 text-accent" /> Bill Amount
+              <DollarSign className="w-4 h-4 mr-2 text-accent" /> Valor da Conta
             </Label>
             <Input
               id="billAmount"
               type="number"
-              placeholder="0.00"
+              placeholder="0,00"
               value={billAmount}
               onChange={(e) => setBillAmount(e.target.value)}
               className="text-base"
@@ -119,13 +119,13 @@ export function TipCalculator() {
 
           <div className="space-y-2">
             <Label htmlFor="tipPercentage" className="flex items-center text-sm font-medium">
-              <Percent className="w-4 h-4 mr-2 text-accent" /> Tip Percentage
+              <Percent className="w-4 h-4 mr-2 text-accent" /> Porcentagem da Gorjeta
             </Label>
             <div className="flex items-center space-x-3">
               <Slider
                 id="tipPercentage"
                 min={0}
-                max={30} // Common range, can be exceeded by input
+                max={30} 
                 step={1}
                 value={[tipPercentage]}
                 onValueChange={(value) => {
@@ -147,7 +147,7 @@ export function TipCalculator() {
 
           <div>
             <Label htmlFor="splitCount" className="flex items-center text-sm font-medium mb-1">
-              <Users className="w-4 h-4 mr-2 text-accent" /> Number of People
+              <Users className="w-4 h-4 mr-2 text-accent" /> Número de Pessoas
             </Label>
             <Input
               id="splitCount"
@@ -165,16 +165,16 @@ export function TipCalculator() {
 
         <div className="space-y-3">
           <h3 className="text-lg font-semibold flex items-center font-headline">
-            <Sparkles className="w-5 h-5 mr-2 text-primary" /> AI Tip Suggester
+            <Sparkles className="w-5 h-5 mr-2 text-primary" /> Sugestor de Gorjeta IA
           </h3>
           <div>
             <Label htmlFor="restaurantUrl" className="flex items-center text-sm font-medium mb-1">
-              <LinkIcon className="w-4 h-4 mr-2 text-accent" /> Restaurant URL (Optional)
+              <LinkIcon className="w-4 h-4 mr-2 text-accent" /> URL do Restaurante (Opcional)
             </Label>
             <Input
               id="restaurantUrl"
               type="url"
-              placeholder="https://www.example-restaurant.com"
+              placeholder="https://www.exemplo-restaurante.com"
               value={restaurantUrl}
               onChange={(e) => setRestaurantUrl(e.target.value)}
               className="text-base"
@@ -184,27 +184,27 @@ export function TipCalculator() {
             {isSuggesting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Getting Suggestion...
+                Buscando Sugestão...
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Suggest Tip Percentage
+                Sugerir Porcentagem de Gorjeta
               </>
             )}
           </Button>
           {suggestionError && (
             <Alert variant="destructive" className="mt-2">
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>Erro</AlertTitle>
               <AlertDescription>{suggestionError}</AlertDescription>
             </Alert>
           )}
           {aiSuggestedTip !== null && aiSuggestionReasoning && !suggestionError && (
              <Alert className="mt-2 border-primary/50 bg-primary/10">
               <Sparkles className="h-4 w-4 text-primary" />
-              <AlertTitle className="text-primary font-semibold">AI Suggestion Applied!</AlertTitle>
+              <AlertTitle className="text-primary font-semibold">Sugestão da IA Aplicada!</AlertTitle>
               <AlertDescription className="text-foreground/80">
-                Suggested Tip: <strong>{aiSuggestedTip}%</strong>. {aiSuggestionReasoning}
+                Gorjeta Sugerida: <strong>{aiSuggestedTip}%</strong>. {aiSuggestionReasoning}
               </AlertDescription>
             </Alert>
           )}
@@ -213,26 +213,26 @@ export function TipCalculator() {
         <Separator />
 
         <div className="space-y-3 p-4 bg-background/50 rounded-lg">
-          <h3 className="text-xl font-semibold text-center font-headline text-primary">Results</h3>
+          <h3 className="text-xl font-semibold text-center font-headline text-primary">Resultados</h3>
           <div className="space-y-2 text-base">
             <div className="flex justify-between">
-              <span>Tip Amount:</span>
-              <span className="font-medium text-accent">${tipAmount.toFixed(2)}</span>
+              <span>Valor da Gorjeta:</span>
+              <span className="font-medium text-accent">R${tipAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Total Bill (with Tip):</span>
-              <span className="font-medium text-accent">${totalBill.toFixed(2)}</span>
+              <span>Conta Total (com Gorjeta):</span>
+              <span className="font-medium text-accent">R${totalBill.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Amount per Person:</span>
-              <span className="font-medium text-accent">${perPersonAmount.toFixed(2)}</span>
+              <span>Valor por Pessoa:</span>
+              <span className="font-medium text-accent">R${perPersonAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>
       </CardContent>
       <CardFooter>
         <Button onClick={handleReset} variant="outline" className="w-full border-primary text-primary hover:bg-primary/10 hover:text-primary">
-          <RotateCcw className="mr-2 h-4 w-4" /> Reset
+          <RotateCcw className="mr-2 h-4 w-4" /> Limpar
         </Button>
       </CardFooter>
     </Card>
