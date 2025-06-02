@@ -59,7 +59,6 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
   },
   async (input) => {
     const { restaurantUrl, apiKey } = input;
-
     const modelId = 'googleai/gemini-1.5-flash-latest';
 
     const generateOptionsBase: Omit<GenerateOptions, 'model'> = {
@@ -71,33 +70,42 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
     
     let resultOutput;
 
-    if (apiKey) {
-      // Se uma API key for fornecida pelo usuário, criar uma instância local do Genkit com essa chave.
-      const localAi = genkit({ 
-        plugins: [googleAI({ apiKey })],
-      });
-      // Para localAi, devemos especificar o modelo na chamada de generate,
-      // já que localAi não possui um modelo padrão pré-configurado.
-      const response = await localAi.generate({
-        ...generateOptionsBase,
-        model: modelId, 
-      });
-      resultOutput = response.output; // Correto para Genkit 1.x
-    } else {
-      // Caso contrário, usar a instância globalAi.
-      // globalAi é configurado com um modelo padrão (gemini-1.5-flash-latest em src/ai/genkit.ts).
-      // Passar explicitamente o modelId aqui garante consistência.
-      const response = await globalAi.generate({
-        ...generateOptionsBase,
-        model: modelId,
-      });
-      resultOutput = response.output; // Correto para Genkit 1.x
+    try {
+      if (apiKey) {
+        const localAi = genkit({ 
+          plugins: [googleAI({ apiKey })],
+        });
+        const response = await localAi.generate({
+          ...generateOptionsBase,
+          model: modelId, 
+        });
+        resultOutput = response.output;
+      } else {
+        const response = await globalAi.generate({
+          ...generateOptionsBase,
+          model: modelId,
+        });
+        resultOutput = response.output;
+      }
+    } catch (flowError) {
+      console.error("Erro no fluxo Genkit (suggestTipPercentageFlow):", flowError);
+      if (flowError instanceof Error) {
+        throw new Error(`Falha na sugestão da IA: ${flowError.message}`);
+      }
+      throw new Error("Falha na sugestão da IA devido a um erro desconhecido no fluxo.");
     }
 
     if (!resultOutput) {
-      throw new Error("A IA não retornou um resultado válido.");
+      throw new Error("A IA não retornou um resultado válido (nulo ou indefinido).");
     }
-    return resultOutput as SuggestTipPercentageOutput;
+
+    try {
+      // Valida explicitamente o output com o schema Zod
+      const parsedOutput = SuggestTipPercentageOutputSchema.parse(resultOutput);
+      return parsedOutput;
+    } catch (parseError) {
+      console.error("Falha na validação do schema do output da IA:", parseError, "Output recebido:", resultOutput);
+      throw new Error("A IA retornou um resultado com formato inesperado.");
+    }
   }
 );
-
