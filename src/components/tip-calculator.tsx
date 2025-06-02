@@ -10,8 +10,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon, Trash2, PlusCircle, Download, Share2, Copy } from "lucide-react";
-import { suggestTipPercentage, type SuggestTipPercentageInput } from "@/ai/flows/suggest-tip-percentage";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon, Trash2, PlusCircle, Download, Share2, Copy, KeyRound } from "lucide-react";
+import { suggestTipPercentage, type SuggestTipPercentageInput, type SuggestTipPercentageOutput } from "@/ai/flows/suggest-tip-percentage";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 
@@ -45,9 +54,25 @@ export function TipCalculator() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  const [userApiKey, setUserApiKey] = useState<string>("");
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState<boolean>(false);
+  const [tempApiKey, setTempApiKey] = useState<string>("");
+
   useEffect(() => {
     setMounted(true);
+    const storedApiKey = localStorage.getItem("googleApiKey");
+    if (storedApiKey) {
+      setUserApiKey(storedApiKey);
+      setTempApiKey(storedApiKey);
+    }
   }, []);
+
+  const handleSaveApiKey = () => {
+    localStorage.setItem("googleApiKey", tempApiKey);
+    setUserApiKey(tempApiKey);
+    setShowApiKeyDialog(false);
+    toast({ title: "Chave de API Salva!", description: "Sua chave de API do Google AI foi salva localmente no navegador.", duration: 3000 });
+  };
 
   const parsedBillAmount = useMemo(() => parseFloat(billAmount) || 0, [billAmount]);
 
@@ -146,7 +171,6 @@ export function TipCalculator() {
         toast({ title: "Compartilhado!", description: "Resultado da conta compartilhado com sucesso.", duration: 3000 });
       } catch (err) {
         console.error("Erro ao compartilhar:", err);
-        // Fallback para copiar se o compartilhamento for cancelado ou falhar
         navigator.clipboard.writeText(text)
           .then(() => {
             toast({
@@ -166,7 +190,6 @@ export function TipCalculator() {
           });
       }
     } else {
-      // Fallback para navegadores que não suportam a Web Share API
       copyToClipboard(text);
     }
   };
@@ -199,13 +222,29 @@ export function TipCalculator() {
       toast({ title: "Atenção!", description: "Por favor, insira a URL de um restaurante para obter uma sugestão de gorjeta.", variant: "destructive", duration: 3000 });
       return;
     }
+
+    const currentApiKey = localStorage.getItem("googleApiKey");
+    if (!currentApiKey) {
+      toast({
+        title: "Chave de API Necessária",
+        description: "Por favor, configure sua chave de API do Google AI para usar a sugestão de gorjeta.",
+        variant: "destructive",
+        duration: 7000,
+        action: <Button onClick={() => {
+          setTempApiKey(userApiKey); // Preencher com a chave atual, se houver
+          setShowApiKeyDialog(true);
+        }}>Configurar Chave</Button>
+      });
+      return;
+    }
+
     setIsSuggesting(true);
     setSuggestionError(null);
     setAiSuggestedTip(null);
     setAiSuggestionReasoning(null);
     try {
-      const input: SuggestTipPercentageInput = { restaurantUrl };
-      const result = await suggestTipPercentage(input);
+      const input: SuggestTipPercentageInput = { restaurantUrl, apiKey: currentApiKey };
+      const result: SuggestTipPercentageOutput = await suggestTipPercentage(input);
       setAiSuggestedTip(result.suggestedTipPercentage);
       setTipPercentage(result.suggestedTipPercentage); 
       setAiSuggestionReasoning(result.reasoning);
@@ -216,9 +255,26 @@ export function TipCalculator() {
       });
     } catch (error) {
       console.error("Erro na Sugestão de Gorjeta da IA:", error);
-      const errorMessage = error instanceof Error ? error.message : "Falha ao obter sugestão de gorjeta. Verifique a URL ou tente novamente.";
+      let errorMessage = error instanceof Error ? error.message : "Falha ao obter sugestão de gorjeta. Verifique a URL ou tente novamente.";
+      
+      // Tenta identificar erros específicos de API Key
+      const errorString = String(error).toLowerCase();
+      if (errorString.includes("api key") || errorString.includes("api_key_invalid") || errorString.includes("permission denied") || errorString.includes("authentication")) {
+          errorMessage = "Chave de API inválida, não configurada corretamente ou com permissões insuficientes. Verifique sua chave.";
+          toast({
+            title: "Erro com a Chave de API",
+            description: errorMessage,
+            variant: "destructive",
+            duration: 7000,
+            action: <Button onClick={() => {
+                setTempApiKey(userApiKey); // Preencher com a chave atual
+                setShowApiKeyDialog(true);
+            }}>Verificar Chave</Button>
+          });
+      } else {
+          toast({ title: "Falha na Sugestão", description: errorMessage, variant: "destructive", duration: 5000 });
+      }
       setSuggestionError(errorMessage);
-      toast({ title: "Falha na Sugestão", description: errorMessage, variant: "destructive", duration: 5000 });
     } finally {
       setIsSuggesting(false);
     }
@@ -260,20 +316,35 @@ export function TipCalculator() {
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
 
   return (
+    <>
     <Card className="w-full shadow-xl bg-card/80 backdrop-blur-sm">
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="text-3xl font-headline tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
             RachaConta 💸
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            aria-label="Alternar tema"
-          >
-            {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                    setTempApiKey(userApiKey); // Preencher com a chave atual ao abrir
+                    setShowApiKeyDialog(true);
+                }}
+                aria-label="Configurar Chave de API do Google AI"
+                title="Configurar Chave de API do Google AI"
+              >
+                <KeyRound className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              aria-label="Alternar tema"
+            >
+              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
         <CardDescription className="text-center font-body pt-2">
           Calcule e divida sua conta com facilidade. Deixe a IA ajudar com sugestões de gorjeta!
@@ -438,13 +509,13 @@ export function TipCalculator() {
               </>
             )}
           </Button>
-          {suggestionError && (
+          {suggestionError && !isSuggesting && ( // Mostrar erro apenas se não estiver carregando
             <Alert variant="destructive" className="mt-2">
-              <AlertTitle>Erro</AlertTitle>
+              <AlertTitle>Erro na Sugestão</AlertTitle>
               <AlertDescription>{suggestionError}</AlertDescription>
             </Alert>
           )}
-          {aiSuggestedTip !== null && aiSuggestionReasoning && !suggestionError && (
+          {aiSuggestedTip !== null && aiSuggestionReasoning && !suggestionError && !isSuggesting && (
              <Alert className="mt-2 border-primary/50 bg-primary/10">
               <Sparkles className="h-4 w-4 text-primary" />
               <AlertTitle className="text-primary font-semibold">Sugestão da IA Aplicada!</AlertTitle>
@@ -513,6 +584,40 @@ export function TipCalculator() {
         </Button>
       </CardFooter>
     </Card>
+
+    <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Configurar Chave de API do Google AI</DialogTitle>
+          <DialogDescription>
+            Para usar a sugestão de gorjeta por IA, insira sua chave de API do Google AI Studio (Gemini).
+            A chave será salva localmente no seu navegador.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-4">
+          <Label htmlFor="apiKeyInput">Sua Chave de API</Label>
+          <Input
+            id="apiKeyInput"
+            type="password"
+            placeholder="Cole sua chave de API aqui"
+            value={tempApiKey}
+            onChange={(e) => setTempApiKey(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Você pode obter uma chave de API gratuitamente no{" "}
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
+              Google AI Studio
+            </a>.
+          </p>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancelar</Button>
+          </DialogClose>
+          <Button onClick={handleSaveApiKey}>Salvar Chave</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
-
