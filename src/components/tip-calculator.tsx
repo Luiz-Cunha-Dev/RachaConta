@@ -147,7 +147,23 @@ export function TipCalculator() {
       } catch (err) {
         console.error("Erro ao compartilhar:", err);
         // Fallback para copiar se o compartilhamento for cancelado ou falhar
-        copyToClipboard(text);
+        navigator.clipboard.writeText(text)
+          .then(() => {
+            toast({
+              title: "Falha ao compartilhar",
+              description: "O resultado foi copiado para a área de transferência.",
+              duration: 4000,
+            });
+          })
+          .catch(copyErr => {
+            console.error("Erro ao copiar após falha no compartilhamento:", copyErr);
+            toast({
+              title: "Erro",
+              description: "Não foi possível compartilhar nem copiar o resultado.",
+              variant: "destructive",
+              duration: 5000,
+            });
+          });
       }
     } else {
       // Fallback para navegadores que não suportam a Web Share API
@@ -499,3 +515,4 @@ export function TipCalculator() {
     </Card>
   );
 }
+
