@@ -9,9 +9,10 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon } from "lucide-react";
 import { suggestTipPercentage, type SuggestTipPercentageInput } from "@/ai/flows/suggest-tip-percentage";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "next-themes";
 
 export function TipCalculator() {
   const [billAmount, setBillAmount] = useState<string>("");
@@ -25,6 +26,12 @@ export function TipCalculator() {
   const [aiSuggestionReasoning, setAiSuggestionReasoning] = useState<string | null>(null);
 
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const parsedBillAmount = useMemo(() => parseFloat(billAmount) || 0, [billAmount]);
 
@@ -55,7 +62,7 @@ export function TipCalculator() {
       const input: SuggestTipPercentageInput = { restaurantUrl };
       const result = await suggestTipPercentage(input);
       setAiSuggestedTip(result.suggestedTipPercentage);
-      setTipPercentage(result.suggestedTipPercentage); // Apply suggested tip
+      setTipPercentage(result.suggestedTipPercentage); 
       setAiSuggestionReasoning(result.reasoning);
       toast({
         title: "Sugestão de Gorjeta da IA ✨",
@@ -72,7 +79,6 @@ export function TipCalculator() {
     }
   };
   
-  // Debounce tip percentage input
   const [tipInput, setTipInput] = useState<string>(tipPercentage.toString());
   useEffect(() => {
     setTipInput(tipPercentage.toString());
@@ -88,14 +94,27 @@ export function TipCalculator() {
     return () => clearTimeout(handler);
   }, [tipInput]);
 
+  if (!mounted) {
+    return null; 
+  }
 
   return (
     <Card className="w-full shadow-xl bg-card/80 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-center tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-          RachaConta 💸
-        </CardTitle>
-        <CardDescription className="text-center font-body">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-3xl font-headline tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+            RachaConta 💸
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+            aria-label="Alternar tema"
+          >
+            {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </Button>
+        </div>
+        <CardDescription className="text-center font-body pt-2">
           Calcule e divida sua conta com facilidade. Deixe a IA ajudar com sugestões de gorjeta!
         </CardDescription>
       </CardHeader>
