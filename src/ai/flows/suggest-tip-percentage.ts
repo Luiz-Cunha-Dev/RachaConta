@@ -60,38 +60,44 @@ const suggestTipPercentageFlow = globalAi.defineFlow(
   async (input) => {
     const { restaurantUrl, apiKey } = input;
 
-    const generateOptions: GenerateOptions = {
+    const modelId = 'googleai/gemini-1.5-flash-latest';
+
+    const generateOptionsBase: Omit<GenerateOptions, 'model'> = {
       prompt: TIP_SUGGESTION_PROMPT_TEMPLATE,
       input: { restaurantUrl },
       output: { schema: SuggestTipPercentageOutputSchema },
-      config: {}, 
+      config: {},
     };
     
-    // Se uma API key for fornecida pelo usuário, criar uma instância local do Genkit com essa chave.
+    let resultOutput;
+
     if (apiKey) {
+      // Se uma API key for fornecida pelo usuário, criar uma instância local do Genkit com essa chave.
       const localAi = genkit({ 
-        plugins: [googleAI({ apiKey })], 
-        // model: 'googleai/gemini-1.5-flash-latest' // Especificar o modelo também para a instância local // Comentado para usar o modelo default do Genkit
+        plugins: [googleAI({ apiKey })],
       });
-      // Usar o modelo default do localAi (que deve ser configurado globalmente ou herdado)
-      generateOptions.model = localAi.model('googleai/gemini-1.5-flash-latest'); // Garantir que um modelo esteja definido
-      const response = await localAi.generate(generateOptions);
-      const output = response.output();
-      if (!output) {
-        throw new Error("A IA não retornou um resultado válido (com chave local).");
-      }
-      return output as SuggestTipPercentageOutput;
+      // Para localAi, devemos especificar o modelo na chamada de generate,
+      // já que localAi não possui um modelo padrão pré-configurado.
+      const response = await localAi.generate({
+        ...generateOptionsBase,
+        model: modelId, 
+      });
+      resultOutput = response.output; // Correto para Genkit 1.x
     } else {
-      // Caso contrário, usar a instância globalAi, que dependerá da configuração de ambiente (ex: GOOGLE_API_KEY).
-      // Adicionar o modelo explicitamente se não estiver no generateOptions global ou se o globalAi não tiver um default
-      generateOptions.model = globalAi.model('googleai/gemini-1.5-flash-latest');
-      const response = await globalAi.generate(generateOptions);
-      const output = response.output();
-      if (!output) {
-        throw new Error("A IA não retornou um resultado válido (com chave de ambiente).");
-      }
-      return output as SuggestTipPercentageOutput;
+      // Caso contrário, usar a instância globalAi.
+      // globalAi é configurado com um modelo padrão (gemini-1.5-flash-latest em src/ai/genkit.ts).
+      // Passar explicitamente o modelId aqui garante consistência.
+      const response = await globalAi.generate({
+        ...generateOptionsBase,
+        model: modelId,
+      });
+      resultOutput = response.output; // Correto para Genkit 1.x
     }
+
+    if (!resultOutput) {
+      throw new Error("A IA não retornou um resultado válido.");
+    }
+    return resultOutput as SuggestTipPercentageOutput;
   }
 );
 
