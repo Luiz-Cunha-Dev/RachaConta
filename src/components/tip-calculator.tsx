@@ -9,10 +9,22 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon, Trash2, PlusCircle } from "lucide-react";
 import { suggestTipPercentage, type SuggestTipPercentageInput } from "@/ai/flows/suggest-tip-percentage";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
+
+interface Person {
+  id: number;
+  name: string;
+  percentage: string;
+}
+
+interface IndividualAmount {
+  name: string;
+  amount: number;
+}
 
 export function TipCalculator() {
   const [billAmount, setBillAmount] = useState<string>("");
@@ -24,6 +36,10 @@ export function TipCalculator() {
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [aiSuggestedTip, setAiSuggestedTip] = useState<number | null>(null);
   const [aiSuggestionReasoning, setAiSuggestionReasoning] = useState<string | null>(null);
+
+  const [divisionMode, setDivisionMode] = useState<'equal' | 'percentage'>('equal');
+  const [people, setPeople] = useState<Person[]>([{ id: Date.now(), name: '', percentage: '' }]);
+  const [percentageError, setPercentageError] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -37,7 +53,44 @@ export function TipCalculator() {
 
   const tipAmount = useMemo(() => parsedBillAmount * (tipPercentage / 100), [parsedBillAmount, tipPercentage]);
   const totalBill = useMemo(() => parsedBillAmount + tipAmount, [parsedBillAmount, tipAmount]);
-  const perPersonAmount = useMemo(() => (splitCount > 0 ? totalBill / splitCount : 0), [totalBill, splitCount]);
+
+  const perPersonAmount = useMemo(() => {
+    if (divisionMode === 'equal') {
+      return splitCount > 0 ? totalBill / splitCount : 0;
+    }
+    return 0;
+  }, [totalBill, splitCount, divisionMode]);
+
+  const totalCustomPercentage = useMemo(() => {
+    if (divisionMode === 'percentage') {
+      return people.reduce((sum, p) => sum + (parseFloat(p.percentage) || 0), 0);
+    }
+    return 100;
+  }, [people, divisionMode]);
+
+  useEffect(() => {
+    if (divisionMode === 'percentage') {
+      const activePercentages = people.some(p => p.percentage !== '' && parseFloat(p.percentage) > 0);
+      if (activePercentages && totalCustomPercentage !== 100) {
+        setPercentageError(`A soma das porcentagens (${totalCustomPercentage}%) deve ser 100%.`);
+      } else {
+        setPercentageError(null);
+      }
+    } else {
+      setPercentageError(null);
+    }
+  }, [totalCustomPercentage, divisionMode, people]);
+
+  const individualAmounts = useMemo<IndividualAmount[]>(() => {
+    if (divisionMode === 'percentage' && parsedBillAmount > 0 && totalCustomPercentage === 100) {
+      return people.map((person, index) => ({
+        name: person.name || `Pessoa ${index + 1}`,
+        amount: totalBill * ((parseFloat(person.percentage) || 0) / 100),
+      }));
+    }
+    return [];
+  }, [divisionMode, people, totalBill, parsedBillAmount, totalCustomPercentage]);
+
 
   const handleReset = () => {
     setBillAmount("");
@@ -47,6 +100,9 @@ export function TipCalculator() {
     setAiSuggestedTip(null);
     setAiSuggestionReasoning(null);
     setSuggestionError(null);
+    setDivisionMode('equal');
+    setPeople([{ id: Date.now(), name: '', percentage: '' }]);
+    setPercentageError(null);
   };
 
   const handleSuggestTip = async () => {
@@ -93,6 +149,20 @@ export function TipCalculator() {
     }, 500);
     return () => clearTimeout(handler);
   }, [tipInput]);
+
+  const addPerson = () => {
+    setPeople([...people, { id: Date.now(), name: '', percentage: '' }]);
+  };
+
+  const removePerson = (id: number) => {
+    setPeople(people.filter(person => person.id !== id));
+  };
+
+  const updatePerson = (id: number, field: keyof Omit<Person, 'id'>, value: string) => {
+    setPeople(people.map(person => 
+      person.id === id ? { ...person, [field]: value } : person
+    ));
+  };
 
   if (!mounted) {
     return null; 
@@ -165,19 +235,84 @@ export function TipCalculator() {
           </div>
 
           <div>
-            <Label htmlFor="splitCount" className="flex items-center text-sm font-medium mb-1">
-              <Users className="w-4 h-4 mr-2 text-accent" /> Número de Pessoas
+            <Label className="flex items-center text-sm font-medium mb-2">
+              <Users className="w-4 h-4 mr-2 text-accent" /> Modo de Divisão
             </Label>
-            <Input
-              id="splitCount"
-              type="number"
-              placeholder="1"
-              value={splitCount}
-              onChange={(e) => setSplitCount(Math.max(1, parseInt(e.target.value) || 1))}
-              className="text-base"
-              min="1"
-            />
+            <RadioGroup
+              value={divisionMode}
+              onValueChange={(value: 'equal' | 'percentage') => setDivisionMode(value)}
+              className="flex space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="equal" id="equal" />
+                <Label htmlFor="equal">Dividir Igualmente</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="percentage" id="percentage" />
+                <Label htmlFor="percentage">Divisão Personalizada</Label>
+              </div>
+            </RadioGroup>
           </div>
+
+          {divisionMode === 'equal' && (
+            <div>
+              <Label htmlFor="splitCount" className="flex items-center text-sm font-medium mb-1">
+                <Users className="w-4 h-4 mr-2 text-accent" /> Número de Pessoas
+              </Label>
+              <Input
+                id="splitCount"
+                type="number"
+                placeholder="1"
+                value={splitCount}
+                onChange={(e) => setSplitCount(Math.max(1, parseInt(e.target.value) || 1))}
+                className="text-base"
+                min="1"
+              />
+            </div>
+          )}
+
+          {divisionMode === 'percentage' && (
+            <div className="space-y-4 pt-2">
+              <Label className="text-sm font-medium">Divisão Personalizada por Pessoa</Label>
+              {people.map((person, index) => (
+                <div key={person.id} className="flex items-end space-x-2">
+                  <div className="flex-grow">
+                    <Label htmlFor={`personName-${person.id}`} className="text-xs text-muted-foreground">Nome {index + 1}</Label>
+                    <Input
+                      id={`personName-${person.id}`}
+                      placeholder={`Nome da Pessoa ${index + 1}`}
+                      value={person.name}
+                      onChange={(e) => updatePerson(person.id, 'name', e.target.value)}
+                    />
+                  </div>
+                  <div className="w-28">
+                    <Label htmlFor={`personPercentage-${person.id}`} className="text-xs text-muted-foreground">Porcentagem (%)</Label>
+                    <Input
+                      id={`personPercentage-${person.id}`}
+                      type="number"
+                      placeholder="0"
+                      value={person.percentage}
+                      onChange={(e) => updatePerson(person.id, 'percentage', e.target.value)}
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => removePerson(person.id)} disabled={people.length <= 1} aria-label="Remover pessoa">
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              <Button onClick={addPerson} variant="outline" className="w-full">
+                <PlusCircle className="w-4 h-4 mr-2" /> Adicionar Pessoa
+              </Button>
+              {percentageError && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertTitle>Erro na Porcentagem</AlertTitle>
+                  <AlertDescription>{percentageError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
         </div>
 
         <Separator />
@@ -242,10 +377,33 @@ export function TipCalculator() {
               <span>Conta Total (com Gorjeta):</span>
               <span className="font-medium text-accent">R${totalBill.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Valor por Pessoa:</span>
-              <span className="font-medium text-accent">R${perPersonAmount.toFixed(2)}</span>
-            </div>
+            
+            {divisionMode === 'equal' && (
+              <div className="flex justify-between">
+                <span>Valor por Pessoa:</span>
+                <span className="font-medium text-accent">R${perPersonAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {divisionMode === 'percentage' && individualAmounts.length > 0 && (
+              <>
+                <Separator className="my-2"/>
+                <h4 className="text-md font-semibold text-center text-primary/80">Valores Individuais:</h4>
+                {individualAmounts.map((item, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.name}:</span>
+                    <span className="font-medium text-accent">R${item.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+            {divisionMode === 'percentage' && parsedBillAmount > 0 && totalCustomPercentage !== 100 && people.some(p=> p.percentage !== '' && parseFloat(p.percentage) > 0) && (
+               <Alert variant="destructive" className="mt-2 text-xs">
+                  <AlertDescription>A soma das porcentagens deve ser 100% para calcular os valores individuais corretamente.</AlertDescription>
+                </Alert>
+            )}
+
+
           </div>
         </div>
       </CardContent>
@@ -257,3 +415,4 @@ export function TipCalculator() {
     </Card>
   );
 }
+
