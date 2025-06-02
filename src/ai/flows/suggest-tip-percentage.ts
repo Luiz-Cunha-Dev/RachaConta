@@ -26,7 +26,7 @@ const SuggestTipPercentageOutputSchema = z.object({
     .number()
     .min(0)
     .max(100)
-    .describe('A porcentagem de gorjeta sugerida com base na URL do restaurante.'),
+    .describe('A porcentagem de gorjeta sugerida com base na URL do restaurante (Um numero inteiro de 0 a 100).'),
   reasoning: z
     .string()
     .describe(
