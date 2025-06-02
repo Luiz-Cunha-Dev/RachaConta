@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon, Trash2, PlusCircle } from "lucide-react";
+import { DollarSign, Percent, Users, Link as LinkIcon, Sparkles, RotateCcw, Loader2, Sun, Moon, Trash2, PlusCircle, Download, Share2, Copy } from "lucide-react";
 import { suggestTipPercentage, type SuggestTipPercentageInput } from "@/ai/flows/suggest-tip-percentage";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
@@ -91,6 +91,79 @@ export function TipCalculator() {
     return [];
   }, [divisionMode, people, totalBill, parsedBillAmount, totalCustomPercentage]);
 
+  const generateResultText = (): string => {
+    let text = `Resumo da Conta - RachaConta\n\n`;
+    text += `Valor da Conta: R$${parsedBillAmount.toFixed(2)}\n`;
+    text += `Gorjeta (${tipPercentage}%): R$${tipAmount.toFixed(2)}\n`;
+    text += `Conta Total (com Gorjeta): R$${totalBill.toFixed(2)}\n\n`;
+
+    if (divisionMode === 'equal') {
+      text += `Divisão Igual (${splitCount} pessoa${splitCount > 1 ? 's' : ''}):\n`;
+      text += `Valor por Pessoa: R$${perPersonAmount.toFixed(2)}\n`;
+    } else if (divisionMode === 'percentage' && individualAmounts.length > 0) {
+      text += `Divisão Personalizada:\n`;
+      individualAmounts.forEach(item => {
+        text += `- ${item.name}: R$${item.amount.toFixed(2)}\n`;
+      });
+    } else if (divisionMode === 'percentage') {
+      text += `Divisão Personalizada: (A soma das porcentagens deve ser 100% para calcular)\n`;
+    }
+    return text;
+  };
+
+  const handleDownloadResult = () => {
+    if (parsedBillAmount <= 0) {
+      toast({ title: "Atenção!", description: "Insira o valor da conta para baixar o resultado.", variant: "destructive", duration: 3000 });
+      return;
+    }
+    const text = generateResultText();
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'racha_conta_resultado.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Download Iniciado!", description: "O arquivo com o resultado da conta foi baixado.", duration: 3000 });
+  };
+
+  const handleShareResult = async () => {
+    if (parsedBillAmount <= 0) {
+      toast({ title: "Atenção!", description: "Insira o valor da conta para compartilhar.", variant: "destructive", duration: 3000 });
+      return;
+    }
+    const text = generateResultText();
+    const shareData = {
+      title: 'RachaConta - Resultado',
+      text: text,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        toast({ title: "Compartilhado!", description: "Resultado da conta compartilhado com sucesso.", duration: 3000 });
+      } catch (err) {
+        console.error("Erro ao compartilhar:", err);
+        // Fallback para copiar se o compartilhamento for cancelado ou falhar
+        copyToClipboard(text);
+      }
+    } else {
+      // Fallback para navegadores que não suportam a Web Share API
+      copyToClipboard(text);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({ title: "Copiado!", description: "Resultado da conta copiado para a área de transferência.", duration: 3000 });
+    }).catch(err => {
+      console.error("Erro ao copiar:", err);
+      toast({ title: "Erro ao Copiar", description: "Não foi possível copiar o resultado.", variant: "destructive", duration: 3000 });
+    });
+  };
+
 
   const handleReset = () => {
     setBillAmount("");
@@ -167,6 +240,8 @@ export function TipCalculator() {
   if (!mounted) {
     return null; 
   }
+
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
 
   return (
     <Card className="w-full shadow-xl bg-card/80 backdrop-blur-sm">
@@ -402,9 +477,18 @@ export function TipCalculator() {
                   <AlertDescription>A soma das porcentagens deve ser 100% para calcular os valores individuais corretamente.</AlertDescription>
                 </Alert>
             )}
-
-
           </div>
+          {parsedBillAmount > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2 mt-4">
+              <Button onClick={handleDownloadResult} variant="outline" className="flex-1">
+                <Download className="mr-2 h-4 w-4" /> Baixar Resultado
+              </Button>
+              <Button onClick={handleShareResult} variant="outline" className="flex-1">
+                {canShare ? <Share2 className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                {canShare ? 'Compartilhar' : 'Copiar Resultado'}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
       <CardFooter>
@@ -415,4 +499,3 @@ export function TipCalculator() {
     </Card>
   );
 }
-
